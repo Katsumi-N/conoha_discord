@@ -52,7 +52,6 @@ func ready(s *discordgo.Session, event *discordgo.Ready) {
 	// Set the playing status.
 	log.Println("BotName: ", event.User.ID)
 	log.Println("BotID: ", event.User.Username)
-	// s.UpdateStatus(0, "demoapp!")
 }
 
 func Server(s *discordgo.Session, m *discordgo.MessageCreate) {
