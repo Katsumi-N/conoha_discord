@@ -7,7 +7,9 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -24,8 +26,9 @@ func main() {
 
 	// Register ready as a callback for the ready events.
 	dg.AddHandler(ready)
-
+	dg.AddHandlerOnce(Timer)
 	dg.AddHandler(Server)
+
 	// In this example, we only care about receiving message events.
 	dg.Identify.Intents = discordgo.MakeIntent(discordgo.IntentsGuilds | discordgo.IntentsGuildMessages)
 
@@ -57,7 +60,6 @@ func ready(s *discordgo.Session, event *discordgo.Ready) {
 func Server(s *discordgo.Session, m *discordgo.MessageCreate) {
 	token := api.GetToken()
 	serverStatus := api.GetServerStatus(token)
-
 	if command := m.Content; command == "!server" {
 		if serverStatus == "SHUTOFF" {
 			s.ChannelMessageSend(m.ChannelID, "サーバーは起動していません")
@@ -74,7 +76,7 @@ func Server(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if serverStatus == "SHUTOFF" {
 			err := api.ServerCommand(token, "start")
 			if err != nil {
-				s.ChannelMessageSend(m.ChannelID, err)
+				s.ChannelMessageSend(m.ChannelID, err.Error())
 			}
 			s.ChannelMessageSend(m.ChannelID, "サーバーを起動しました")
 		} else {
@@ -84,7 +86,7 @@ func Server(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if serverStatus == "ACTIVE" {
 			err := api.ServerCommand(token, "stop")
 			if err != nil {
-				s.ChannelMessageSend(m.ChannelID, err)
+				s.ChannelMessageSend(m.ChannelID, err.Error())
 			}
 			s.ChannelMessageSend(m.ChannelID, "サーバーを停止しました")
 		} else {
@@ -96,7 +98,7 @@ func Server(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if serverStatus == "ACTIVE" {
 			err := api.ServerCommand(token, "reboot")
 			if err != nil {
-				s.ChannelMessageSend(m.ChannelID, err)
+				s.ChannelMessageSend(m.ChannelID, err.Error())
 			}
 			s.ChannelMessageSend(m.ChannelID, "サーバーを再起動しました")
 		} else {
@@ -106,9 +108,41 @@ func Server(s *discordgo.Session, m *discordgo.MessageCreate) {
 	} else if command == "!deposit" {
 		deposit, err := api.GetPayment(token)
 		if err != nil {
-			s.ChannelMessageSend(m.ChannelID, err)
+			s.ChannelMessageSend(m.ChannelID, err.Error())
 		}
-		s.ChannelMessageSend(m.ChannelID, deposit)
+		s.ChannelMessageSend(m.ChannelID, strconv.Itoa(deposit)+"円の残高です")
 	}
 
+}
+
+func TimeSignal() (string, int) {
+	now := time.Now()
+	hour, min, _ := now.Clock()
+	var message string
+	if hour == 7 && min == 0 || hour == 19 && min == 0 {
+		token := api.GetToken()
+		serverStatus := api.GetServerStatus(token)
+		if serverStatus == "SHUTOFF" {
+			message = "サーバーは停止中です"
+		} else if serverStatus == "ACTIVE" {
+			message = "サーバーは起動中です"
+		} else {
+			message = "Unknown State"
+		}
+	}
+	return message, hour
+}
+
+func Timer(s *discordgo.Session, m *discordgo.MessageCreate) {
+	for range time.Tick(1 * time.Minute) {
+		// fmt.Println("受信")
+		mes, hour := TimeSignal()
+		if mes != "" && hour == 7 {
+			s.ChannelMessageSend(m.ChannelID, "7時です！今日も一日頑張りましょう！")
+			s.ChannelMessageSend(m.ChannelID, mes)
+		} else if mes != "" && hour == 19 {
+			s.ChannelMessageSend(m.ChannelID, "19時です！今日も一日お疲れさまでした！")
+			s.ChannelMessageSend(m.ChannelID, mes)
+		}
+	}
 }
