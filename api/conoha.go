@@ -14,6 +14,7 @@ import (
 const identityURL = "https://identity.tyo2.conoha.io/v2.0/"
 const computeURL = "https://compute.tyo2.conoha.io/v2/"
 const accountURL = "https://account.tyo2.conoha.io/v1/"
+const imageURL = "https://image-service.tyo2.conoha.io/v2/"
 
 func doRequest(method, base string, urlPath string, tokenId string, data string, query map[string]string) (body []byte, err error) {
 	client := &http.Client{}
@@ -162,14 +163,18 @@ func GetPayment(tokenId string) (int, error) {
 	return pay.PaymentSummary.TotalDepositAmount, err
 }
 
+// サーバーの状態を取得
 type ServerInfo struct {
 	Server struct {
 		Status string `json:"status"`
+		Flavor struct {
+			ID string `json:"id"`
+		}
 	} `json:"server"`
 }
 
 // サーバーの状態を取得
-func GetServerStatus(tokenId string) (status string) {
+func GetServerStatus(tokenId string) (status string, flavorId string) {
 	url := config.Config.TenantId + "/servers/" + config.Config.ServerId
 
 	resp, err := doRequest("GET", computeURL, url, tokenId, "", map[string]string{})
@@ -178,5 +183,45 @@ func GetServerStatus(tokenId string) (status string) {
 	}
 	var server ServerInfo
 	err = json.Unmarshal(resp, &server)
-	return server.Server.Status
+	return server.Server.Status, server.Server.Flavor.ID
+}
+
+//ローカルディスクのイメージ保存
+func SaveImage(tokenId string) error {
+	url := config.Config.TenantId + "/servers/" + config.Config.ServerId + "/action"
+	// body = fmt.Sprintf("{\"os-start\":\"null\"}")
+	tag := "image_test"
+	data := fmt.Sprintf("{\"createImage\": {\"name\": \"%s\"}}", tag)
+	_, err := doRequest("POST", computeURL, url, tokenId, data, map[string]string{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	return err
+}
+
+//サーバーのflavor(メモリプラン)の変更
+func ChangeServerFlavor(tokenId string, now string, to string) error {
+	url := config.Config.TenantId + "/servers/" + config.Config.ServerId + "/action"
+	var changeFlavor string
+	if now == "1gb" && to == "4gb" {
+		changeFlavor = config.Config.Flavor4gb
+	} else if now == "4gb" && to == "1gb" {
+		changeFlavor = config.Config.Flavor1gb
+	}
+	data := fmt.Sprintf("{\"resize\": {\"flavorRef\": \"%s\"}}", changeFlavor)
+	_, err := doRequest("POST", computeURL, url, tokenId, data, map[string]string{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	return err
+}
+
+func ConfirmResize(tokenId string) error {
+	url := config.Config.TenantId + "/servers/" + config.Config.ServerId + "/action"
+	data := fmt.Sprintf("{\"confirmResize\": null}")
+	_, err := doRequest("POST", computeURL, url, tokenId, data, map[string]string{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	return err
 }
