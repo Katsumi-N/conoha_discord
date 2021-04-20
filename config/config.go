@@ -14,6 +14,8 @@ type ConfigList struct {
 	Username       string
 	Password       string
 	DiscordToken   string
+	Flavor1gb      string
+	Flavor4gb      string
 }
 
 var Config ConfigList
@@ -31,6 +33,8 @@ func init() {
 		ServerId:       cfg.Section("conoha").Key("serverId").String(),
 		Username:       cfg.Section("conoha").Key("username").String(),
 		Password:       cfg.Section("conoha").Key("password").String(),
+		Flavor1gb:      cfg.Section("conoha").Key("flavor_1gb").String(),
+		Flavor4gb:      cfg.Section("conoha").Key("flavor_4gb").String(),
 		DiscordToken:   cfg.Section("discord").Key("token").String(),
 	}
 }

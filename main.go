@@ -85,22 +85,26 @@ func Server(s *discordgo.Session, m *discordgo.MessageCreate) {
 	} else if command == "!start" {
 		if serverStatus == "SHUTOFF" {
 			// サーバーのflavorを1gb->4gbに変更
-			err := api.ChangeServerFlavor(token, flavor, "4gb")
-			if err != nil {
-				s.ChannelMessageSend(m.ChannelID, err.Error())
-			}
 			for {
-				statusCheck, _ := api.GetServerStatus(token)
+				err := api.ChangeServerFlavor(token, flavor, "4gb")
+				if err != nil {
+					s.ChannelMessageSend(m.ChannelID, err.Error())
+				}
+				statusCheck, flavorChanged := api.GetServerStatus(token)
 				if statusCheck == "VERIFY_RESIZE" {
 					api.ConfirmResize(token)
+					break
+				} else if flavorChanged == config.Config.Flavor4gb {
+					s.ChannelMessageSend(m.ChannelID, "メモリタイプ:4gb")
 					break
 				} else {
 					s.ChannelMessageSend(m.ChannelID, "プラン変更待機中...")
 					time.Sleep(time.Minute)
 				}
 			}
-			s.ChannelMessageSend(m.ChannelID, "プラン変更完了！")
-			err = api.ServerCommand(token, "start")
+			s.ChannelMessageSend(m.ChannelID, "プラン変更完了！(or既に変更済み)")
+			time.Sleep(30 * time.Second)
+			err := api.ServerCommand(token, "start")
 			if err != nil {
 				s.ChannelMessageSend(m.ChannelID, err.Error())
 			}
@@ -126,11 +130,12 @@ func Server(s *discordgo.Session, m *discordgo.MessageCreate) {
 			s.ChannelMessageSend(m.ChannelID, "サーバーは既に停止しています")
 			fmt.Println(flavor)
 		}
-		err := api.ChangeServerFlavor(token, flavor, "1gb")
-		if err != nil {
-			s.ChannelMessageSend(m.ChannelID, err.Error())
-		}
+
 		for {
+			err := api.ChangeServerFlavor(token, flavor, "1gb")
+			if err != nil {
+				s.ChannelMessageSend(m.ChannelID, err.Error())
+			}
 			statusCheck, _ := api.GetServerStatus(token)
 			if statusCheck == "VERIFY_RESIZE" {
 				api.ConfirmResize(token)
