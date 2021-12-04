@@ -91,8 +91,14 @@ func Server(s *discordgo.Session, m *discordgo.MessageCreate) {
 					s.ChannelMessageSend(m.ChannelID, err.Error())
 				}
 				statusCheck, flavorChanged := api.GetServerStatus(token)
+				log.Println("現在の状態:", statusCheck)
 				if statusCheck == "VERIFY_RESIZE" {
-					api.ConfirmResize(token)
+					resizeStatusCode, _ := api.ConfirmResize(token)
+					for resizeStatusCode != 204 {
+						time.Sleep(10 * time.Second) // 10秒待ってから再リクエスト
+						resizeStatusCode, _ = api.ConfirmResize(token)
+					}
+
 					break
 				} else if flavorChanged == config.Config.Flavor4gb {
 					s.ChannelMessageSend(m.ChannelID, "メモリタイプ:4gb")
@@ -102,13 +108,13 @@ func Server(s *discordgo.Session, m *discordgo.MessageCreate) {
 					time.Sleep(time.Minute)
 				}
 			}
-			s.ChannelMessageSend(m.ChannelID, "プラン変更完了！(or既に変更済み)")
+			s.ChannelMessageSend(m.ChannelID, "プラン変更完了！これからサーバーを起動するよ！")
 			time.Sleep(30 * time.Second)
 			err := api.ServerCommand(token, "start")
 			if err != nil {
 				s.ChannelMessageSend(m.ChannelID, err.Error())
 			}
-			s.ChannelMessageSend(m.ChannelID, "サーバーを起動しました")
+			s.ChannelMessageSend(m.ChannelID, "サーバーを起動しました！")
 		} else {
 			s.ChannelMessageSend(m.ChannelID, "サーバーは既に起動しています")
 		}

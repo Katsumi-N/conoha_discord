@@ -16,7 +16,7 @@ const computeURL = "https://compute.tyo2.conoha.io/v2/"
 const accountURL = "https://account.tyo2.conoha.io/v1/"
 const imageURL = "https://image-service.tyo2.conoha.io/v2/"
 
-func doRequest(method, base string, urlPath string, tokenId string, data string, query map[string]string) (body []byte, err error) {
+func doRequest(method, base string, urlPath string, tokenId string, data string, query map[string]string) (body []byte, statuscode int, err error) {
 	client := &http.Client{}
 	baseURL, err := url.Parse(base)
 	if err != nil {
@@ -50,15 +50,17 @@ func doRequest(method, base string, urlPath string, tokenId string, data string,
 	// 実行
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, resp.StatusCode, err
 	}
 	defer resp.Body.Close()
 	// 帰ってきた値のbodyを読み込む
 	body, err = ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, resp.StatusCode, err
 	}
-	return body, nil
+	//fmt.Println(resp.StatusCode)
+
+	return body, resp.StatusCode, nil
 }
 
 type JsonAccess struct {
@@ -80,8 +82,9 @@ func GetToken() string {
 	url := "tokens"
 	body := fmt.Sprintf("{\"auth\":{\"passwordCredentials\":{\"username\":\"%s\",\"password\":\"%s\"},\"tenantId\":\"%s\"}}",
 		config.Config.Username, config.Config.Password, config.Config.TenantId)
-	resp, err := doRequest("POST", identityURL, url, "", body, map[string]string{})
+	resp, _, err := doRequest("POST", identityURL, url, "", body, map[string]string{})
 	if err != nil {
+		fmt.Println("error in GetToken() func")
 		log.Fatal(err)
 	}
 
@@ -109,7 +112,7 @@ func ServerCommand(tokenId string, command string) error {
 		body = ""
 	}
 
-	_, err := doRequest("POST", computeURL, url, tokenId, body, map[string]string{})
+	_, _, err := doRequest("POST", computeURL, url, tokenId, body, map[string]string{})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -154,7 +157,7 @@ type PaymentInfo struct {
 func GetPayment(tokenId string) (int, error) {
 	url := config.Config.TenantId + "/payment-summary"
 
-	resp, err := doRequest("GET", accountURL, url, tokenId, "", map[string]string{})
+	resp, _, err := doRequest("GET", accountURL, url, tokenId, "", map[string]string{})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -177,7 +180,7 @@ type ServerInfo struct {
 func GetServerStatus(tokenId string) (status string, flavorId string) {
 	url := config.Config.TenantId + "/servers/" + config.Config.ServerId
 
-	resp, err := doRequest("GET", computeURL, url, tokenId, "", map[string]string{})
+	resp, _, err := doRequest("GET", computeURL, url, tokenId, "", map[string]string{})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -192,7 +195,7 @@ func SaveImage(tokenId string) error {
 	// body = fmt.Sprintf("{\"os-start\":\"null\"}")
 	tag := "image_test"
 	data := fmt.Sprintf("{\"createImage\": {\"name\": \"%s\"}}", tag)
-	_, err := doRequest("POST", computeURL, url, tokenId, data, map[string]string{})
+	_, _, err := doRequest("POST", computeURL, url, tokenId, data, map[string]string{})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -209,19 +212,19 @@ func ChangeServerFlavor(tokenId string, now string, to string) error {
 		changeFlavor = config.Config.Flavor1gb
 	}
 	data := fmt.Sprintf("{\"resize\": {\"flavorRef\": \"%s\"}}", changeFlavor)
-	_, err := doRequest("POST", computeURL, url, tokenId, data, map[string]string{})
+	_, _, err := doRequest("POST", computeURL, url, tokenId, data, map[string]string{})
 	if err != nil {
 		log.Fatal(err)
 	}
 	return err
 }
 
-func ConfirmResize(tokenId string) error {
+func ConfirmResize(tokenId string) (statuscode int, err error) {
 	url := config.Config.TenantId + "/servers/" + config.Config.ServerId + "/action"
 	data := fmt.Sprintf("{\"confirmResize\": null}")
-	_, err := doRequest("POST", computeURL, url, tokenId, data, map[string]string{})
+	_, statuscode, err = doRequest("POST", computeURL, url, tokenId, data, map[string]string{})
 	if err != nil {
 		log.Fatal(err)
 	}
-	return err
+	return statuscode, err
 }
